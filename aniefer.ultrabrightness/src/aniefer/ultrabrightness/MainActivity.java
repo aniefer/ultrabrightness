@@ -4,11 +4,12 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 
+import android.app.Activity;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.app.Activity;
 import android.util.Log;
 import android.view.Menu;
+import android.view.WindowManager;
 import android.widget.TextView;
 
 public class MainActivity extends Activity {
@@ -33,9 +34,10 @@ public class MainActivity extends Activity {
 	protected void onStart() {
 		super.onStart();
 
-		int ultra = getUltraBrightnessMode();
-		if (ultra != -1) {
-			onUltraBrightnessChanged(ultra == 1 ? false : true);
+		int oldUltra = getUltraBrightnessMode();
+		if (oldUltra != -1) {
+			setBrightnessLevel(oldUltra == 1 ? 20 : 100);
+			onUltraBrightnessChanged(oldUltra == 1 ? false : true);
 		}
 	}
 
@@ -58,6 +60,18 @@ public class MainActivity extends Activity {
 	private void setUltraMode(int paramInt) {
 		log("Setting ultramode to " + paramInt);
 		Settings.System.putInt(getBaseContext().getContentResolver(), "screen_brightness_ultra_mode", paramInt);
+	}
+
+	private void setBrightnessLevel(int level) {
+		float floatLevel = level / 100.0f;
+
+		log("Setting brightness float " + floatLevel + "\n");
+		log("Setting brightness 255: " + floatLevel * 255 + "\n");
+		Settings.System.putInt(this.getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, (int)floatLevel * 255);
+
+		WindowManager.LayoutParams lp = getWindow().getAttributes();
+		lp.screenBrightness = floatLevel;
+		getWindow().setAttributes(lp);
 	}
 
 	private boolean writeOneLine(String paramString1, String paramString2) {
