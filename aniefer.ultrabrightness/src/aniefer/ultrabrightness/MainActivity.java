@@ -8,7 +8,6 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
-import android.view.Menu;
 import android.view.WindowManager;
 import android.widget.TextView;
 
@@ -24,13 +23,6 @@ public class MainActivity extends Activity {
 	}
 
 	@Override
-	public boolean onCreateOptionsMenu(Menu menu) {
-		// Inflate the menu; this adds items to the action bar if it is present.
-		getMenuInflater().inflate(R.menu.main, menu);
-		return true;
-	}
-
-	@Override
 	protected void onStart() {
 		super.onStart();
 
@@ -39,6 +31,7 @@ public class MainActivity extends Activity {
 			setBrightnessLevel(oldUltra == 1 ? 20 : 100);
 			onUltraBrightnessChanged(oldUltra == 1 ? false : true);
 		}
+
 	}
 
 	private void log(String msg) {
@@ -67,7 +60,7 @@ public class MainActivity extends Activity {
 
 		log("Setting brightness float " + floatLevel + "\n");
 		log("Setting brightness 255: " + floatLevel * 255 + "\n");
-		Settings.System.putInt(this.getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, (int)floatLevel * 255);
+		Settings.System.putInt(this.getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, (int) floatLevel * 255);
 
 		WindowManager.LayoutParams lp = getWindow().getAttributes();
 		lp.screenBrightness = floatLevel;
