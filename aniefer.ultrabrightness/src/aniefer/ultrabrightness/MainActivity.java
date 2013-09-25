@@ -9,17 +9,20 @@ package aniefer.ultrabrightness;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.reflect.Method;
 
 import android.app.Activity;
+import android.content.Context;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.util.Log;
 import android.view.WindowManager;
 import android.widget.TextView;
 
 public class MainActivity extends Activity {
 
 	private TextView mTextView;
+
+	private final static String ULTRA_BRIGHTNESS_PROP = "persist.sys.ultrabrightness";
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -32,40 +35,28 @@ public class MainActivity extends Activity {
 	protected void onStart() {
 		super.onStart();
 
-		int oldUltra = getUltraBrightnessMode();
-		if (oldUltra != -1) {
-			setBrightnessLevel(oldUltra == 1 ? 20 : 100);
-			onUltraBrightnessChanged(oldUltra == 1 ? false : true);
+		String oldUltra = GET(getBaseContext(), ULTRA_BRIGHTNESS_PROP);
+		if (oldUltra != null) {
+			if (oldUltra.equals("0")) {
+				setBrightnessLevel(100);
+				onUltraBrightnessChanged(true);
+				mTextView.append("Brightness set to 100%.");
+			} else {
+				setBrightnessLevel(20);
+				onUltraBrightnessChanged(false);
+				mTextView.append("Brightness set to 20%.");
+			}
 		}
-
 	}
 
-	private void log(String msg) {
-		mTextView.append(msg);
+	@Override
+	public void onWindowFocusChanged(boolean hasFocus) {
+		super.onWindowFocusChanged(hasFocus);
+		finish();
 	}
-
-	private int getUltraBrightnessMode() {
-		try {
-			log("checking screen_brightness_ultra_mode: ");
-			int i = Settings.System.getInt(getBaseContext().getContentResolver(), "screen_brightness_ultra_mode");
-			log(String.valueOf(i) + "\n");
-			return i;
-		} catch (Settings.SettingNotFoundException localSettingNotFoundException) {
-			log(localSettingNotFoundException.getMessage());
-		}
-		return -1;
-	}
-
-	private void setUltraMode(int paramInt) {
-		log("Setting ultramode to " + paramInt);
-		Settings.System.putInt(getBaseContext().getContentResolver(), "screen_brightness_ultra_mode", paramInt);
-	}
-
+	
 	private void setBrightnessLevel(int level) {
 		float floatLevel = level / 100.0f;
-
-		log("Setting brightness float " + floatLevel + "\n");
-		log("Setting brightness 255: " + floatLevel * 255 + "\n");
 		Settings.System.putInt(this.getContentResolver(), Settings.System.SCREEN_BRIGHTNESS, (int) floatLevel * 255);
 
 		WindowManager.LayoutParams lp = getWindow().getAttributes();
@@ -73,37 +64,50 @@ public class MainActivity extends Activity {
 		getWindow().setAttributes(lp);
 	}
 
-	private boolean writeOneLine(String paramString1, String paramString2) {
+	private boolean writeOneLine(String fileName, String value) {
 		try {
-			FileWriter localFileWriter = new FileWriter(paramString1);
+			FileWriter localFileWriter = new FileWriter(fileName);
 			try {
-				localFileWriter.write(paramString2);
+				localFileWriter.write(value);
 				return true;
 			} finally {
 				localFileWriter.close();
 			}
 		} catch (IOException localIOException) {
-			log("Error writing to " + paramString1 + ". Exception: \n" + localIOException.getMessage());
 		}
 		return false;
 	}
 
-	private void onUltraBrightnessChanged(boolean paramBoolean) {
-		int i = paramBoolean ? 1 : 0;
+	private void onUltraBrightnessChanged(boolean newValue) {
 		String file = "/sys/devices/i2c-0/0-0036/mode";
-		String value;
-
-		Log.d("BrightnessPreference", "ultrabrightess set to " + paramBoolean);
 		File localFile = new File(file);
 		if ((localFile.isFile()) && (localFile.canRead())) {
-			value = paramBoolean ? "i2c_pwm" : "i2c_pwm_als";
-			log("Writing " + file + " " + value + "\n");
+			String value = newValue ? "i2c_pwm" : "i2c_pwm_als";
 			if (writeOneLine(file, value)) {
-				setUltraMode(i);
+				SET(getBaseContext(), ULTRA_BRIGHTNESS_PROP, newValue ? "1" : "0");
 			}
-		} else {
-			log("Failed to read " + file + "\n");
 		}
 	}
 
+	@SuppressWarnings({"rawtypes", "unchecked"})
+	private String GET(Context context, String key) throws IllegalArgumentException {
+		try {
+			ClassLoader cl = context.getClassLoader();
+			Class SystemProperties = cl.loadClass("android.os.SystemProperties");
+			Method getMethod = SystemProperties.getMethod("get", String.class);
+			return (String) getMethod.invoke(SystemProperties, key);
+		} catch (Exception e) {
+		}
+
+		return null;
+	}
+
+	private void SET(Context context, String key, String value) throws IllegalArgumentException {
+		try {
+			String arg = "setprop " + key + " " + value;
+			/* don't bother waiting for this */
+			Runtime.getRuntime().exec(new String[] {"/system/xbin/su", "-c", arg});
+		} catch (IOException e) {
+		}
+	}
 }
